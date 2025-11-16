@@ -1,0 +1,9 @@
+# C++ compiled files
+*.exe
+
+# IDE files
+.vs/
+.vscode/
+
+# Our data file
+# data/phonebook.txt
