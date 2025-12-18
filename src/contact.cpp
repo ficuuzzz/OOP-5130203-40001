@@ -136,7 +136,9 @@ void Contact::print() const {
 
 // Проверка валидности контакта
 bool Contact::isValid() const {
-    // Пока просто проверяем, что обязательные поля не пустые
-    // Позже добавим полноценную валидацию
-    return !firstName.empty() && !lastName.empty();
+    // По ТЗ обязательны для создания: Имя, Фамилия, email, 1 номер
+    return !firstName.empty() &&
+           !lastName.empty() &&
+           !email.empty() &&
+           !phoneNumbers.empty();
 }

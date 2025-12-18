@@ -3,7 +3,7 @@
 
 # IDE files
 .vs/
-.vscode/
+.vscode/    
 
 # Our data file
 # data/phonebook.txt
