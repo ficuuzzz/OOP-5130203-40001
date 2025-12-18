@@ -4,6 +4,12 @@
 #include <sstream>
 #include <algorithm>
 
+#include <QFile>
+#include <QTextStream>
+#include <QString>
+#include <QStringList>
+
+
 using namespace std;
 
 // Конструктор
@@ -193,88 +199,66 @@ bool ContactModel::comparisonStrings(const std::string& a, const std::string& b)
 
 // Загрузка из файла
 bool ContactModel::loadFromFile() {
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cout << "Info: Could not open file " << filename 
-             << " (it might not exist yet)" << endl;
+    QFile file(QString::fromStdString(filename));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return false;
+
+    contacts.clear();
+    QTextStream in(&file);
+
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        if (line.trimmed().isEmpty()) continue;
+
+        QStringList parts = line.split('|');
+        if (parts.size() < 7) continue;
+
+        Contact c(
+            parts[0].toStdString(),
+            parts[1].toStdString(),
+            parts[2].toStdString(),
+            parts[3].toStdString(),
+            parts[4].toStdString(),
+            parts[5].toStdString()
+        );
+
+        QStringList phones = parts[6].split(',', Qt::SkipEmptyParts);
+        for (const QString& p : phones)
+            c.addPhoneNumber(p.toStdString());
+
+        contacts.push_back(c);
     }
-    
-    contacts.clear();  // Очищаем текущие контакты
-    
-    string line;
-    while (getline(file, line)) {
-        if (line.empty()) continue;
-        
-        // Простой парсинг - в реальном приложении нужно использовать CSV или JSON
-        // Формат: Имя|Фамилия|Отчество|Адрес|ДатаРождения|Email|Телефоны
-        stringstream ss(line);
-        string firstName, lastName, patronymic, address, dateOfBirth, email, phonesStr;
-        
-        getline(ss, firstName, '|');
-        getline(ss, lastName, '|');
-        getline(ss, patronymic, '|');
-        getline(ss, address, '|');
-        getline(ss, dateOfBirth, '|');
-        getline(ss, email, '|');
-        getline(ss, phonesStr, '|');
-        
-        // Создаем контакт
-        Contact contact(firstName, lastName, patronymic, address, dateOfBirth, email);
-        
-        // Парсим телефоны (разделены запятыми)
-        stringstream phonesStream(phonesStr);
-        string phone;
-        while (getline(phonesStream, phone, ',')) {
-            if (!phone.empty()) {
-                try {
-                    contact.addPhoneNumber(phone);
-                } catch (const invalid_argument& e) {
-                    cout << "Warning: Skipping invalid phone number '" << phone 
-                         << "' for contact " << firstName << " " << lastName << endl;
-                }
-            }
-        }
-        
-        contacts.push_back(contact);
-    }
-    
-    file.close();
-    cout << "Loaded " << contacts.size() << " contacts from " << filename << endl;
+
     return true;
 }
 
+
 // Сохранение в файл
 bool ContactModel::saveToFile() const {
-    ofstream file(filename);
-    if (!file.is_open()) {
-        cout << "Error: Could not open file " << filename << " for writing" << endl;
+    QFile file(QString::fromStdString(filename));
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
-    }
-    
-    for (const auto& contact : contacts) {
-        file << contact.getFirstName() << "|"
-             << contact.getLastName() << "|"
-             << contact.getPatronymic() << "|"
-             << contact.getAddress() << "|"
-             << contact.getDateOfBirth() << "|"
-             << contact.getEmail() << "|";
-        
-        // Сохраняем телефоны через запятую
-        const auto& phones = contact.getPhoneNumbers();
+
+    QTextStream out(&file);
+
+    for (const auto& c : contacts) {
+        out << QString::fromStdString(c.getFirstName()) << "|"
+            << QString::fromStdString(c.getLastName()) << "|"
+            << QString::fromStdString(c.getPatronymic()) << "|"
+            << QString::fromStdString(c.getAddress()) << "|"
+            << QString::fromStdString(c.getDateOfBirth()) << "|"
+            << QString::fromStdString(c.getEmail()) << "|";
+
+        const auto& phones = c.getPhoneNumbers();
         for (size_t i = 0; i < phones.size(); ++i) {
-            file << phones[i];
-            if (i < phones.size() - 1) {
-                file << ",";
-            }
+            out << QString::fromStdString(phones[i]);
+            if (i + 1 < phones.size()) out << ",";
         }
-        
-        file << endl;
+        out << "\n";
     }
-    
-    file.close();
     return true;
 }
+
 
 // Геттеры
 vector<Contact> ContactModel::getContacts() const {
