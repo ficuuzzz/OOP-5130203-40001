@@ -11,7 +11,7 @@
 #include <vector>
 #include <utility>
 
-#include "contactmodel.h"
+#include "ContactModel.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -30,6 +30,8 @@ private:
 
     // выбор столбца сортировки
     QComboBox* columnBox = nullptr;
+
+    QComboBox* storageBox = nullptr;
 
     // диапазон дат
     QCheckBox* cbUseDateFilter = nullptr;

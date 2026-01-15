@@ -6,6 +6,7 @@
 #include <string>
 #include <algorithm>
 
+
 enum class SortField {
     FIRST_NAME,
     LAST_NAME,
@@ -13,10 +14,26 @@ enum class SortField {
     DATE_OF_BIRTH
 };
 
+enum class StorageBackend {
+    File,
+    Postgres
+};
+
+struct PostgresConfig {
+    std::string host = "localhost";
+    int port = 5432;
+    std::string dbname = "phonebook";
+    std::string user = "postgres";
+    std::string password = "postgres";
+};
+
+
 class ContactModel {
 private:
     std::vector<Contact> contacts;
     std::string filename;
+    StorageBackend backend = StorageBackend::File;
+    PostgresConfig pg;
 
 public:
     ContactModel(const std::string& file = "contacts.txt");
@@ -38,6 +55,20 @@ public:
     int indexOf(const Contact& contact) const;
 
     void printAll() const;
+
+    void setStorageBackend(StorageBackend b);
+    StorageBackend getStorageBackend() const;
+
+    void setPostgresConfig(const PostgresConfig& cfg);
+    PostgresConfig getPostgresConfig() const;
+
+    // универсальные load/save (сами решают: файл или БД)
+    bool load();
+    bool save() const;
+
+    // БД-методы
+    bool loadFromDatabase(std::string* err = nullptr);
+    bool saveToDatabase(std::string* err = nullptr) const;
 
 private:
     bool contactExists(const Contact& contact) const;

@@ -7,7 +7,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt5 REQUIRED COMPONENTS Widgets Core)
+find_package(Qt5 REQUIRED COMPONENTS Widgets Core Sql)
 
 file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS include/*.h)
@@ -23,4 +23,5 @@ target_include_directories(PhoneBookQT PRIVATE include)
 target_link_libraries(PhoneBookQT
     Qt5::Widgets
     Qt5::Core
+    Qt5::Sql
 )

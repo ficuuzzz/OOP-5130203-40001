@@ -6,7 +6,8 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QMessageBox>
-
+#include <QInputDialog>
+#include <QRegularExpression>
 #include <algorithm>
 
 static QString norm(const std::string& s) {
@@ -84,6 +85,16 @@ void MainWindow::buildUi() {
     row2->addWidget(descBtn);
 
     row2->addSpacing(20);
+    row2->addSpacing(20);
+    row2->addWidget(new QLabel("Storage:"));
+
+    storageBox = new QComboBox();
+    storageBox->addItem("File");
+    storageBox->addItem("PostgreSQL");
+    storageBox->setCurrentIndex(0);
+
+    row2->addWidget(storageBox);
+
 
     cbUseDateFilter = new QCheckBox("Birth date range");
     dateFrom = new QDateEdit();
@@ -132,6 +143,96 @@ void MainWindow::buildUi() {
         reloadTable();
         sortByColumn(currentSortColumn, currentSortOrder);
     };
+
+    auto parseConn = [](const QString& text, PostgresConfig& cfg, QString& err) -> bool {
+        const QStringList tokens = text.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        for (const QString& t : tokens) {
+            int eq = t.indexOf('=');
+            if (eq <= 0) continue;
+            const QString k = t.left(eq).trimmed();
+            const QString v = t.mid(eq + 1).trimmed();
+            if (k == "host") cfg.host = v.toStdString();
+            else if (k == "port") {
+                bool ok = false;
+                int p = v.toInt(&ok);
+                if (!ok || p < 1 || p > 65535) { err = "Bad port"; return false; }
+                cfg.port = p;
+            }
+            else if (k == "dbname") cfg.dbname = v.toStdString();
+            else if (k == "user") cfg.user = v.toStdString();
+            else if (k == "password") cfg.password = v.toStdString();
+        }
+        if (cfg.dbname.empty()) { err = "dbname is required"; return false; }
+        return true;
+    };
+
+    connect(storageBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [this, refresh, parseConn](int idx) {
+
+        if (idx == 0) {
+            model.setStorageBackend(StorageBackend::File);
+            model.loadFromFile();
+            reloadTable();
+            sortByColumn(currentSortColumn, currentSortOrder);
+            return;
+        }
+
+        // PostgreSQL
+        PostgresConfig cfg = model.getPostgresConfig();
+
+        QString prefill = QString("host=%1 port=%2 dbname=%3 user=%4 password=%5")
+            .arg(QString::fromStdString(cfg.host))
+            .arg(cfg.port)
+            .arg(QString::fromStdString(cfg.dbname))
+            .arg(QString::fromStdString(cfg.user))
+            .arg(QString::fromStdString(cfg.password));
+
+        bool ok = false;
+        QString input = QInputDialog::getText(
+            this,
+            "PostgreSQL connection",
+            "Enter: host=... port=... dbname=... user=... password=...",
+            QLineEdit::Normal,
+            prefill,
+            &ok
+        );
+
+        if (!ok) {
+            // отменили — возвращаем File
+            storageBox->blockSignals(true);
+            storageBox->setCurrentIndex(0);
+            storageBox->blockSignals(false);
+            return;
+        }
+
+        QString perr;
+        if (!parseConn(input, cfg, perr)) {
+            QMessageBox::critical(this, "PostgreSQL", "Invalid config: " + perr);
+            storageBox->blockSignals(true);
+            storageBox->setCurrentIndex(0);
+            storageBox->blockSignals(false);
+            return;
+        }
+
+        model.setPostgresConfig(cfg);
+        model.setStorageBackend(StorageBackend::Postgres);
+
+        std::string err;
+        if (!model.loadFromDatabase(&err)) {
+            QMessageBox::critical(this, "PostgreSQL", "Connection/load failed:\n" + QString::fromStdString(err));
+            // откат
+            model.setStorageBackend(StorageBackend::File);
+            model.loadFromFile();
+
+            storageBox->blockSignals(true);
+            storageBox->setCurrentIndex(0);
+            storageBox->blockSignals(false);
+        }
+
+        reloadTable();
+        sortByColumn(currentSortColumn, currentSortOrder);
+    });
+
 
     // update on search/date
     connect(searchEdit, &QLineEdit::textChanged, this, [refresh](const QString&) { refresh(); });
